@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IA Blocks - Studio</title>
+    <style>
+        /* Paleta Minimalista y Elegante (Blanco, Negro, Plata) */
+        :root {
+            --bg-color: #ffffff;
+            --panel-bg: #f5f5f7;
+            --text-main: #1d1d1f;
+            --text-muted: #86868b;
+            --accent-black: #000000;
+            --accent-silver: #d1d1d6;
+            --border-radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* BARRA LATERAL (Controles y Catálogo) */
+        .sidebar {
+            width: 380px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--accent-silver);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.03);
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 32px;
+        }
+
+        .step-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .action-btn {
+            background-color: var(--bg-color);
+            border: 1px solid var(--accent-silver);
+            color: var(--text-main);
+            padding: 16px;
+            border-radius: var(--border-radius);
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 12px;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .action-btn:hover {
+            border-color: var(--accent-black);
+            background-color: #fafafa;
+        }
+
+        .action-btn.primary {
+            background-color: var(--accent-black);
+            color: white;
+            border: none;
+        }
+
+        .action-btn.primary:hover {
+            background-color: #333;
+        }
+
+        /* ZONA CENTRAL (Lienzo) */
+        .main-workspace {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background-color: #e5e5ea; /* Tono plata muy claro para contrastar el lienzo */
+        }
+
+        .toolbar {
+            height: 60px;
+            background: var(--bg-color);
+            border-bottom: 1px solid var(--accent-silver);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+        }
+
+        .canvas-container {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 40px;
+        }
+
+        .room-canvas {
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 4/3;
+            background-color: var(--bg-color);
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            position: relative;
+            background-image: url('data:image/svg+xml;utf8,<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><circle cx="2" cy="2" r="2" fill="%23d1d1d6"/></svg>');
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: var(--text-muted);
+            border: 2px dashed var(--accent-silver);
+            transition: all 0.3s ease;
+        }
+
+        /* CATÁLOGO DE MUEBLES (Oculto inicialmente) */
+        .catalog {
+            display: none;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            overflow-y: auto;
+            margin-top: 16px;
+        }
+
+        .catalog-item {
+            background: var(--bg-color);
+            border: 1px solid var(--accent-silver);
+            border-radius: var(--border-radius);
+            padding: 10px;
+            text-align: center;
+            cursor: grab;
+        }
+        
+        .catalog-item img {
+            width: 100%;
+            height: 80px;
+            object-fit: contain;
+            margin-bottom: 8px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- BARRA LATERAL -->
+    <aside class="sidebar">
+        <div class="logo">IA Blocks Studio.</div>
+        
+        <div id="step-1">
+            <div class="step-title">1. Tu Espacio</div>
+            <label class="action-btn" for="upload-room">
+                📷 Subir foto del ambiente
+                <input type="file" id="upload-room" style="display: none;" accept="image/*">
+            </label>
+        </div>
+
+        <div id="step-2" style="display: none; margin-top: 24px;">
+            <div class="step-title">2. Preparación</div>
+            <button class="action-btn" id="btn-keep">Continuar con este ambiente</button>
+            <button class="action-btn primary" id="btn-clean">✨ Limpiar habitación (IA)</button>
+        </div>
+
+        <div id="step-3" style="display: none; margin-top: 24px; flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;">
+            <div class="step-title">3. Catálogo</div>
+            <div class="catalog" id="furniture-catalog" style="display: grid;">
+                <!-- Ejemplos estáticos de catálogo -->
+                <div class="catalog-item" draggable="true">
+                    <div style="height:80px; background:#f0f0f0; border-radius:8px; margin-bottom:8px;">🛋️</div>
+                    <small>Sofá Moderno</small>
+                </div>
+                <div class="catalog-item" draggable="true">
+                    <div style="height:80px; background:#f0f0f0; border-radius:8px; margin-bottom:8px;">🪑</div>
+                    <small>Silla Nórdica</small>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ZONA CENTRAL -->
+    <main class="main-workspace">
+        <header class="toolbar">
+            <span style="font-size: 14px; font-weight: 500; color: var(--text-muted);">Proyecto sin título</span>
+            <button class="action-btn primary" style="padding: 8px 24px; margin: 0; font-size: 14px;" id="btn-render" disabled>
+                Convertir a Realidad
+            </button>
+        </header>
+
+        <section class="canvas-container">
+            <div class="room-canvas" id="canvas">
+                <div style="font-size: 32px; margin-bottom: 16px;">🖼️</div>
+                <p>Arrastra tu fotografía aquí</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Lógica interactiva básica
+        const uploadInput = document.getElementById('upload-room');
+        const canvas = document.getElementById('canvas');
+        const step2 = document.getElementById('step-2');
+        const step3 = document.getElementById('step-3');
+        const btnKeep = document.getElementById('btn-keep');
+        const btnClean = document.getElementById('btn-clean');
+        const btnRender = document.getElementById('btn-render');
+
+        // Manejar subida de imagen
+        uploadInput.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    canvas.style.backgroundImage = `url(${event.target.result})`;
+                    canvas.style.backgroundSize = 'cover';
+                    canvas.style.backgroundPosition = 'center';
+                    canvas.style.border = 'none';
+                    canvas.innerHTML = ''; // Limpiar el texto
+                    
+                    // Mostrar siguiente paso
+                    step2.style.display = 'block';
+                }
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        // Simular "Limpiar Habitación" (Flux 2)
+        btnClean.addEventListener('click', () => {
+            btnClean.innerHTML = '⏳ Procesando con IA...';
+            setTimeout(() => {
+                // Aquí iría la respuesta de la API de Flux 2
+                canvas.style.filter = 'grayscale(100%) brightness(1.2)'; // Efecto visual simulado
+                btnClean.innerHTML = '✨ Habitación Limpia';
+                abrirCatalogo();
+            }, 1500);
+        });
+
+        btnKeep.addEventListener('click', abrirCatalogo);
+
+        function abrirCatalogo() {
+            step3.style.display = 'flex';
+            btnRender.disabled = false;
+        }
+
+        // TODO: Agregar lógica de Drag & Drop para los elementos del catálogo sobre el canvas.
+    </script>
+</body>
+</html>
