@@ -20,7 +20,9 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'No se envió ninguna imagen' });
         }
 
-        const positivePrompt = "An empty room, bare walls, clean wooden floor, no furniture, minimalist architecture, photorealistic, 8k, architecture photography style";
+      // Reemplaza la línea del positivePrompt en tu backend por esto:
+
+const positivePrompt = "Preserve the exact same room structure, identical perspective, and original lighting. Remove the arcade machine, remove cables, and remove all furniture. Leave a completely bare white wall and plain wooden floor. Do not alter the architecture or the hallway.";
         
         // Generar UUID con el módulo importado correctamente
         const taskUUID = crypto.randomUUID();
