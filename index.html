@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IA Blocks - Studio</title>
+    <title>Mubly - Studio</title>
     <style>
         /* Paleta Minimalista y Elegante (Blanco, Negro, Plata) */
         :root {
@@ -57,6 +57,9 @@
             color: var(--text-muted);
             margin-bottom: 16px;
             font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .action-btn {
@@ -75,6 +78,7 @@
             justify-content: center;
             align-items: center;
             gap: 10px;
+            width: 100%;
         }
 
         .action-btn:hover {
@@ -98,7 +102,7 @@
             display: flex;
             flex-direction: column;
             position: relative;
-            background-color: #e5e5ea; /* Tono plata muy claro para contrastar el lienzo */
+            background-color: #e5e5ea;
         }
 
         .toolbar {
@@ -138,30 +142,64 @@
             transition: all 0.3s ease;
         }
 
-        /* CATÁLOGO DE MUEBLES (Oculto inicialmente) */
-        .catalog {
-            display: none;
+        /* NAVEGADOR DE MARCAS (Simulación Drive) */
+        .catalog-container {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        .grid-view {
+            display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
             overflow-y: auto;
-            margin-top: 16px;
+            padding-bottom: 20px;
         }
 
-        .catalog-item {
+        .grid-item {
             background: var(--bg-color);
             border: 1px solid var(--accent-silver);
             border-radius: var(--border-radius);
-            padding: 10px;
+            padding: 16px 10px;
             text-align: center;
-            cursor: grab;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
-        
-        .catalog-item img {
-            width: 100%;
-            height: 80px;
-            object-fit: contain;
+
+        .grid-item:hover {
+            border-color: var(--accent-black);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .grid-item .icon {
+            font-size: 32px;
             margin-bottom: 8px;
         }
+
+        .grid-item.draggable {
+            cursor: grab;
+        }
+
+        .grid-item.draggable:active {
+            cursor: grabbing;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            display: none;
+        }
+        .back-btn:hover { color: var(--accent-black); }
 
     </style>
 </head>
@@ -169,7 +207,7 @@
 
     <!-- BARRA LATERAL -->
     <aside class="sidebar">
-        <div class="logo">IA Blocks Studio.</div>
+        <div class="logo">Mubly.</div>
         
         <div id="step-1">
             <div class="step-title">1. Tu Espacio</div>
@@ -185,18 +223,14 @@
             <button class="action-btn primary" id="btn-clean">✨ Limpiar habitación (IA)</button>
         </div>
 
-        <div id="step-3" style="display: none; margin-top: 24px; flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;">
-            <div class="step-title">3. Catálogo</div>
-            <div class="catalog" id="furniture-catalog" style="display: grid;">
-                <!-- Ejemplos estáticos de catálogo -->
-                <div class="catalog-item" draggable="true">
-                    <div style="height:80px; background:#f0f0f0; border-radius:8px; margin-bottom:8px;">🛋️</div>
-                    <small>Sofá Moderno</small>
-                </div>
-                <div class="catalog-item" draggable="true">
-                    <div style="height:80px; background:#f0f0f0; border-radius:8px; margin-bottom:8px;">🪑</div>
-                    <small>Silla Nórdica</small>
-                </div>
+        <div id="step-3" style="display: none; margin-top: 24px; flex-grow: 1; flex-direction: column; overflow: hidden;">
+            <div class="step-title">
+                <span>3. Marcas Asociadas</span>
+                <button class="back-btn" id="btn-back">⬅ Volver</button>
+            </div>
+            
+            <div class="catalog-container">
+                <div class="grid-view" id="dynamic-grid"></div>
             </div>
         </div>
     </aside>
@@ -219,7 +253,7 @@
     </main>
 
     <script>
-        // Lógica interactiva básica
+        // Elementos de la UI
         const uploadInput = document.getElementById('upload-room');
         const canvas = document.getElementById('canvas');
         const step2 = document.getElementById('step-2');
@@ -228,43 +262,163 @@
         const btnClean = document.getElementById('btn-clean');
         const btnRender = document.getElementById('btn-render');
 
-        // Manejar subida de imagen
+        let originalImageBase64 = null; // Guardará la foto para enviarla al backend
+
+        // 1. Manejar subida de imagen
         uploadInput.addEventListener('change', function(e) {
             if (e.target.files && e.target.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(event) {
-                    canvas.style.backgroundImage = `url(${event.target.result})`;
+                    originalImageBase64 = event.target.result;
+                    canvas.style.backgroundImage = `url(${originalImageBase64})`;
                     canvas.style.backgroundSize = 'cover';
                     canvas.style.backgroundPosition = 'center';
                     canvas.style.border = 'none';
-                    canvas.innerHTML = ''; // Limpiar el texto
+                    canvas.innerHTML = ''; 
                     
-                    // Mostrar siguiente paso
                     step2.style.display = 'block';
                 }
                 reader.readAsDataURL(e.target.files[0]);
             }
         });
 
-        // Simular "Limpiar Habitación" (Flux 2)
-        btnClean.addEventListener('click', () => {
-            btnClean.innerHTML = '⏳ Procesando con IA...';
-            setTimeout(() => {
-                // Aquí iría la respuesta de la API de Flux 2
-                canvas.style.filter = 'grayscale(100%) brightness(1.2)'; // Efecto visual simulado
+        // 2. Conectar botón "Limpiar" con el Backend en Vercel
+        btnClean.addEventListener('click', async () => {
+            // VERIFICACIÓN IMPORTANTE AÑADIDA AQUÍ
+            if (!originalImageBase64) {
+                alert("Por favor, sube una foto de tu ambiente primero usando el botón 'Subir foto del ambiente'.");
+                return;
+            }
+
+            btnClean.innerHTML = '⏳ Mubly procesando...';
+            btnClean.disabled = true;
+            canvas.style.filter = 'blur(4px) grayscale(50%)'; 
+
+            try {
+                // Llamada a la función Serverless de Vercel
+                const response = await fetch('/api/limpiar-ambiente', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageBase64: originalImageBase64 })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error desconocido del servidor');
+                }
+
+                // Éxito: Mostrar imagen limpia
+                canvas.style.backgroundImage = `url(${data.imageUrl})`;
+                canvas.style.filter = 'none';
                 btnClean.innerHTML = '✨ Habitación Limpia';
-                abrirCatalogo();
-            }, 1500);
+                
+                abrirMarcas(); 
+
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Hubo un error al limpiar la habitación: " + error.message);
+                canvas.style.filter = 'none';
+                btnClean.innerHTML = '❌ Reintentar';
+                btnClean.disabled = false;
+            }
         });
 
-        btnKeep.addEventListener('click', abrirCatalogo);
+        btnKeep.addEventListener('click', abrirMarcas);
 
-        function abrirCatalogo() {
+        function abrirMarcas() {
             step3.style.display = 'flex';
             btnRender.disabled = false;
+            renderLevel('brands');
         }
 
-        // TODO: Agregar lógica de Drag & Drop para los elementos del catálogo sobre el canvas.
+        // --- Simulación de Estructura de Drive (Marcas Dinámicas) ---
+        const mockDriveData = {
+            "IKEA": {
+                icon: "🏢",
+                folders: {
+                    "Mesas": [
+                        { id: "ik-m1", icon: "🪑", name: "Mesa Comedor LISABO" },
+                        { id: "ik-m2", icon: "🪑", name: "Mesa Centro LACK" }
+                    ],
+                    "Sillas": [
+                        { id: "ik-s1", icon: "🪑", name: "Silla INGOLF" }
+                    ],
+                    "Sillones": [
+                        { id: "ik-sl1", icon: "🛋️", name: "Sofá KIVIK" }
+                    ]
+                }
+            },
+            "BoConcept": {
+                icon: "🏬",
+                folders: {
+                    "Mesas": [
+                        { id: "bo-m1", icon: "🪑", name: "Mesa Alicante" }
+                    ],
+                    "Sillones": [
+                        { id: "bo-sl1", icon: "🛋️", name: "Sofá Indivi" }
+                    ]
+                }
+            }
+        };
+
+        const dynamicGrid = document.getElementById('dynamic-grid');
+        const btnBack = document.getElementById('btn-back');
+        let currentLevel = 'brands'; 
+        let selectedBrand = null;
+        let selectedFolder = null;
+
+        btnBack.addEventListener('click', () => {
+            if (currentLevel === 'items') renderLevel('folders', selectedBrand);
+            else if (currentLevel === 'folders') renderLevel('brands');
+        });
+
+        function renderLevel(level, parentId = null) {
+            dynamicGrid.innerHTML = '';
+            currentLevel = level;
+
+            if (level === 'brands') {
+                btnBack.style.display = 'none';
+                document.querySelector('#step-3 .step-title span').innerText = '3. Marcas Asociadas';
+                
+                Object.keys(mockDriveData).forEach(brandName => {
+                    const brand = mockDriveData[brandName];
+                    const el = document.createElement('div');
+                    el.className = 'grid-item';
+                    el.innerHTML = `<div class="icon">${brand.icon}</div><small><b>${brandName}</b></small>`;
+                    el.onclick = () => renderLevel('folders', brandName);
+                    dynamicGrid.appendChild(el);
+                });
+            } 
+            else if (level === 'folders') {
+                btnBack.style.display = 'block';
+                selectedBrand = parentId;
+                document.querySelector('#step-3 .step-title span').innerText = `Carpetas: ${parentId}`;
+                
+                const folders = mockDriveData[parentId].folders;
+                Object.keys(folders).forEach(folderName => {
+                    const el = document.createElement('div');
+                    el.className = 'grid-item';
+                    el.innerHTML = `<div class="icon">📁</div><small>${folderName}</small>`;
+                    el.onclick = () => renderLevel('items', folderName);
+                    dynamicGrid.appendChild(el);
+                });
+            }
+            else if (level === 'items') {
+                btnBack.style.display = 'block';
+                selectedFolder = parentId;
+                document.querySelector('#step-3 .step-title span').innerText = `${selectedBrand} > ${parentId}`;
+                
+                const items = mockDriveData[selectedBrand].folders[parentId];
+                items.forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = 'grid-item draggable';
+                    el.draggable = true; 
+                    el.innerHTML = `<div class="icon">${item.icon}</div><small>${item.name}</small>`;
+                    dynamicGrid.appendChild(el);
+                });
+            }
+        }
     </script>
 </body>
 </html>
