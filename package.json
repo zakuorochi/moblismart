@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Beta app for Mubly using Vercel Serverless Functions",
+  "type": "module", 
   "scripts": {
     "start": "echo 'Frontend is static' && exit 0"
   },
