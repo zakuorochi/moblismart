@@ -92,6 +92,22 @@
             border: none;
         }
 
+        .catalog-thumb {
+            width: 100%;
+            height: 70px;
+            object-fit: contain; /* Ajusta la imagen sin deformarla */
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+
+        .sticker-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none; /* Evita bugs al arrastrar */
+            filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3)); /* Le da un ligero toque de realismo 3D */
+        }
+
         .action-btn.primary:hover {
             background-color: #333;
         }
@@ -333,30 +349,15 @@
         }
 
         // --- Simulación de Estructura de Drive (Marcas Dinámicas) ---
+    // --- Simulación de Estructura de Drive (Vinculado a carpeta "muestras") ---
         const mockDriveData = {
             "IKEA": {
                 icon: "🏢",
                 folders: {
-                    "Mesas": [
-                        { id: "ik-m1", icon: "🪑", name: "Mesa Comedor LISABO" },
-                        { id: "ik-m2", icon: "🪑", name: "Mesa Centro LACK" }
-                    ],
                     "Sillas": [
-                        { id: "ik-s1", icon: "🪑", name: "Silla INGOLF" }
-                    ],
-                    "Sillones": [
-                        { id: "ik-sl1", icon: "🛋️", name: "Sofá KIVIK" }
-                    ]
-                }
-            },
-            "BoConcept": {
-                icon: "🏬",
-                folders: {
-                    "Mesas": [
-                        { id: "bo-m1", icon: "🪑", name: "Mesa Alicante" }
-                    ],
-                    "Sillones": [
-                        { id: "bo-sl1", icon: "🛋️", name: "Sofá Indivi" }
+                        // Aquí vinculamos las imágenes de tu repo en GitHub
+                        { id: "ik-s1", image: "/muestras/silla1.png", name: "Silla Nórdica" },
+                        { id: "ik-s2", image: "/muestras/silla2.png", name: "Silla Moderna" }
                     ]
                 }
             }
@@ -414,9 +415,114 @@
                     const el = document.createElement('div');
                     el.className = 'grid-item draggable';
                     el.draggable = true; 
-                    el.innerHTML = `<div class="icon">${item.icon}</div><small>${item.name}</small>`;
+                    // AHORA INYECTA LA IMAGEN REAL EN LUGAR DEL EMOJI
+                    el.innerHTML = `<img src="${item.image}" alt="${item.name}" class="catalog-thumb"><small>${item.name}</small>`;
+                    // Guardamos la ruta de la imagen en un atributo dataset para usarla al arrastrar
+                    el.dataset.imgSrc = item.image;
                     dynamicGrid.appendChild(el);
                 });
+            }
+        }
+
+        // --- LÓGICA DE DRAG & DROP (MUEBLES COMO STICKERS) ---
+        
+        let draggedItemSrc = null; // Guardará la URL de la imagen que se está arrastrando
+
+        dynamicGrid.addEventListener('dragstart', (e) => {
+            const item = e.target.closest('.draggable');
+            if (item) {
+                draggedItemSrc = item.dataset.imgSrc; // Capturamos la ruta de la imagen
+                e.dataTransfer.setData('text/plain', 'mueble');
+                e.dataTransfer.effectAllowed = 'copy';
+            }
+        });
+
+        canvas.addEventListener('dragover', (e) => {
+            e.preventDefault(); 
+            e.dataTransfer.dropEffect = 'copy';
+            canvas.style.borderColor = 'var(--accent-black)';
+        });
+
+        canvas.addEventListener('dragleave', () => {
+            canvas.style.borderColor = 'transparent';
+        });
+
+        canvas.addEventListener('drop', (e) => {
+            e.preventDefault();
+            canvas.style.borderColor = 'transparent';
+
+            if (draggedItemSrc) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                crearStickerFlotante(x, y, draggedItemSrc);
+                draggedItemSrc = null;
+            }
+        });
+
+        // Crea el marco flotante con tamaño estándar
+        function crearStickerFlotante(x, y, imgSrc) {
+            const floatingBox = document.createElement('div');
+            
+            // Tamaño uniforme para todos los stickers (Ej: 120x120px)
+            const stickerSize = 120; 
+
+            floatingBox.style.position = 'absolute';
+            floatingBox.style.left = `${x - (stickerSize / 2)}px`; 
+            floatingBox.style.top = `${y - (stickerSize / 2)}px`;
+            floatingBox.style.width = `${stickerSize}px`;
+            floatingBox.style.height = `${stickerSize}px`;
+            
+            // El marco visual sutil para denotar que es un elemento editable
+            floatingBox.style.backgroundColor = 'transparent'; 
+            floatingBox.style.border = '2px dashed rgba(0, 0, 0, 0.4)';
+            floatingBox.style.borderRadius = '8px';
+            floatingBox.style.cursor = 'move';
+            
+            // Insertamos la imagen con la clase que controla su peso y comportamiento
+            floatingBox.innerHTML = `<img src="${imgSrc}" class="sticker-img">`;
+
+            hacerMovible(floatingBox);
+            canvas.appendChild(floatingBox);
+        }
+
+        // Lógica de movimiento en el lienzo
+        function hacerMovible(elemento) {
+            let isDragging = false;
+            let startX, startY;
+
+            elemento.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX - elemento.offsetLeft;
+                startY = e.clientY - elemento.offsetTop;
+                elemento.style.zIndex = 100;
+                elemento.style.borderColor = 'var(--accent-black)'; // Resalta al tocar
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                let newX = e.clientX - startX;
+                let newY = e.clientY - startY;
+
+                const maxLeft = canvas.clientWidth - elemento.clientWidth;
+                const maxTop = canvas.clientHeight - elemento.clientHeight;
+                
+                newX = Math.max(0, Math.min(newX, maxLeft));
+                newY = Math.max(0, Math.min(newY, maxTop));
+
+                elemento.style.left = `${newX}px`;
+                elemento.style.top = `${newY}px`;
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    elemento.style.zIndex = 10;
+                    elemento.style.borderColor = 'rgba(0, 0, 0, 0.4)'; // Vuelve a su estado sutil
+                }
+            });
             }
         }
     </script>
