@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 export default async function handler(req, res) {
     // Solo permitimos peticiones POST
     if (req.method !== 'POST') {
@@ -20,8 +22,7 @@ export default async function handler(req, res) {
 
         const positivePrompt = "An empty room, bare walls, clean wooden floor, no furniture, minimalist architecture, photorealistic, 8k, architecture photography style";
         
-        // Usamos crypto nativo de Node para el UUID
-        const crypto = require('crypto');
+        // Generar UUID con el módulo importado correctamente
         const taskUUID = crypto.randomUUID();
 
         const requestBody = [
@@ -40,7 +41,7 @@ export default async function handler(req, res) {
             }
         ];
 
-        // Llamada a Runware desde el servidor (oculto al usuario)
+        // Llamada a Runware desde el servidor
         const runwareResponse = await fetch('https://api.runware.ai/v1', {
             method: 'POST',
             headers: {
