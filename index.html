@@ -269,31 +269,38 @@
     </main>
 
     <script type="module">
-
-        // --- CONFIGURACIÓN DE FIREBASE ---
-        // Importar los módulos de Firebase desde los CDN oficiales
+        // --- CONFIGURACIÓN DE FIREBASE (VÍA VERCEL) ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // TODO: Reemplaza esto con las credenciales de tu proyecto Mubly en Firebase
-        const firebaseConfig = {
-            apiKey: "TU_API_KEY_DE_FIREBASE",
-            authDomain: "mubly-app.firebaseapp.com",
-            projectId: "mubly-app",
-            storageBucket: "mubly-app.appspot.com",
-            messagingSenderId: "TU_MESSAGING_ID",
-            appId: "TU_APP_ID"
-        };
-
-        // Inicializar Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        // --- LÓGICA PARA LEER EL CATÁLOGO DESDE FIRESTORE ---
-        
-        // Variable para guardar el catálogo real estructurado
+        let db; // Variable global para la base de datos
         let catalogoReal = {};
 
+        // Función para inicializar Firebase pidiendo las claves a Vercel
+        async function iniciarApp() {
+            try {
+                // 1. Pedir credenciales a nuestro backend seguro
+                const respuesta = await fetch('/api/config');
+                
+                if (!respuesta.ok) {
+                    throw new Error("No se pudo obtener la configuración de Firebase desde Vercel");
+                }
+                
+                const firebaseConfig = await respuesta.json();
+
+                // 2. Inicializar Firebase con esas credenciales
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+
+                // 3. Ahora que está conectado, cargar el catálogo
+                await cargarCatalogoDesdeFirestore();
+
+            } catch (error) {
+                console.error("Error al conectar con la base de datos de Mubly:", error);
+            }
+        }
+
+        // --- LÓGICA PARA LEER EL CATÁLOGO DESDE FIRESTORE ---
         async function cargarCatalogoDesdeFirestore() {
             try {
                 const marcasSnapshot = await getDocs(collection(db, "marcas"));
@@ -314,24 +321,21 @@
                 // 2. Poblar los muebles dentro de sus marcas y categorías
                 mueblesSnapshot.forEach((doc) => {
                     const mueble = doc.data();
-                    // Buscar el nombre de la marca basándonos en el marca_id
                     const marcaDoc = marcasSnapshot.docs.find(m => m.id === mueble.marca_id);
                     
                     if (marcaDoc) {
                         const nombreMarca = marcaDoc.data().nombre;
                         const categoria = mueble.categoria;
 
-                        // Si la categoría no existe en esta marca, la creamos
                         if (!catalogoReal[nombreMarca].folders[categoria]) {
                             catalogoReal[nombreMarca].folders[categoria] = [];
                         }
 
-                        // Insertamos el mueble
                         catalogoReal[nombreMarca].folders[categoria].push({
                             id: mueble.id_mueble,
                             image: mueble.imagen_url,
                             name: mueble.nombre,
-                            precio: mueble.precio // Listo para la orden de compra
+                            precio: mueble.precio 
                         });
                     }
                 });
@@ -343,9 +347,10 @@
             }
         }
 
-        // Llamar a la función tan pronto cargue la página
-        cargarCatalogoDesdeFirestore();
-        // Elementos de la UI
+        // Iniciar todo el proceso de la app
+        iniciarApp();
+
+        // --- Lógica Interactiva de la UI ---
         const uploadInput = document.getElementById('upload-room');
         const canvas = document.getElementById('canvas');
         const step2 = document.getElementById('step-2');
@@ -353,10 +358,11 @@
         const btnKeep = document.getElementById('btn-keep');
         const btnClean = document.getElementById('btn-clean');
         const btnRender = document.getElementById('btn-render');
+        const dynamicGrid = document.getElementById('dynamic-grid');
+        const btnBack = document.getElementById('btn-back');
 
-        let originalImageBase64 = null; // Guardará la foto para enviarla al backend
+        let originalImageBase64 = null; 
 
-        // 1. Manejar subida de imagen
         uploadInput.addEventListener('change', function(e) {
             if (e.target.files && e.target.files[0]) {
                 const reader = new FileReader();
@@ -374,9 +380,7 @@
             }
         });
 
-        // 2. Conectar botón "Limpiar" con el Backend en Vercel
         btnClean.addEventListener('click', async () => {
-            // VERIFICACIÓN IMPORTANTE AÑADIDA AQUÍ
             if (!originalImageBase64) {
                 alert("Por favor, sube una foto de tu ambiente primero usando el botón 'Subir foto del ambiente'.");
                 return;
@@ -387,7 +391,6 @@
             canvas.style.filter = 'blur(4px) grayscale(50%)'; 
 
             try {
-                // Llamada a la función Serverless de Vercel
                 const response = await fetch('/api/limpiar-ambiente', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -400,7 +403,6 @@
                     throw new Error(data.error || 'Error desconocido del servidor');
                 }
 
-                // Éxito: Mostrar imagen limpia
                 canvas.style.backgroundImage = `url(${data.imageUrl})`;
                 canvas.style.filter = 'none';
                 btnClean.innerHTML = '✨ Habitación Limpia';
@@ -424,12 +426,6 @@
             renderLevel('brands');
         }
 
-        // --- Simulación de Estructura de Drive (Marcas Dinámicas) ---
-    // --- Simulación de Estructura de Drive (Vinculado a carpeta "muestras") ---
-
-
-        const dynamicGrid = document.getElementById('dynamic-grid');
-        const btnBack = document.getElementById('btn-back');
         let currentLevel = 'brands'; 
         let selectedBrand = null;
         let selectedFolder = null;
@@ -439,11 +435,10 @@
             else if (currentLevel === 'folders') renderLevel('brands');
         });
 
-   function renderLevel(level, parentId = null) {
+        function renderLevel(level, parentId = null) {
             dynamicGrid.innerHTML = '';
             currentLevel = level;
 
-            // Esperar a que cargue el catálogo si está vacío
             if (Object.keys(catalogoReal).length === 0) {
                 dynamicGrid.innerHTML = '<p style="text-align:center; width:100%;">Cargando catálogo...</p>';
                 return;
@@ -457,7 +452,6 @@
                     const brand = catalogoReal[brandName];
                     const el = document.createElement('div');
                     el.className = 'grid-item';
-                    // Usamos el icono HTML que guardamos desde Firebase
                     el.innerHTML = `<div class="icon">${brand.icon}</div><small><b>${brandName}</b></small>`;
                     el.onclick = () => renderLevel('folders', brandName);
                     dynamicGrid.appendChild(el);
@@ -488,10 +482,8 @@
                     el.className = 'grid-item draggable';
                     el.draggable = true; 
                     
-                    // Mostramos la imagen real desde el Bucket de Storage
                     el.innerHTML = `<img src="${item.image}" alt="${item.name}" class="catalog-thumb"><small>${item.name}</small>`;
                     
-                    // Guardamos la URL y el Precio en el dataset para usarlos después (Orden de compra)
                     el.dataset.imgSrc = item.image;
                     el.dataset.precio = item.precio; 
                     el.dataset.idMueble = item.id;
@@ -500,14 +492,14 @@
                 });
             }
         }
+
         // --- LÓGICA DE DRAG & DROP (MUEBLES COMO STICKERS) ---
-        
-        let draggedItemSrc = null; // Guardará la URL de la imagen que se está arrastrando
+        let draggedItemSrc = null; 
 
         dynamicGrid.addEventListener('dragstart', (e) => {
             const item = e.target.closest('.draggable');
             if (item) {
-                draggedItemSrc = item.dataset.imgSrc; // Capturamos la ruta de la imagen
+                draggedItemSrc = item.dataset.imgSrc; 
                 e.dataTransfer.setData('text/plain', 'mueble');
                 e.dataTransfer.effectAllowed = 'copy';
             }
@@ -517,7 +509,7 @@
             e.preventDefault(); 
             e.dataTransfer.dropEffect = 'copy';
             canvas.style.borderColor = 'var(--accent-black)';
-        });https://github.com/zakuorochi/mubly/tree/main
+        });
 
         canvas.addEventListener('dragleave', () => {
             canvas.style.borderColor = 'transparent';
@@ -537,11 +529,8 @@
             }
         });
 
-        // Crea el marco flotante con tamaño estándar
         function crearStickerFlotante(x, y, imgSrc) {
             const floatingBox = document.createElement('div');
-            
-            // Tamaño uniforme para todos los stickers (Ej: 120x120px)
             const stickerSize = 120; 
 
             floatingBox.style.position = 'absolute';
@@ -550,20 +539,17 @@
             floatingBox.style.width = `${stickerSize}px`;
             floatingBox.style.height = `${stickerSize}px`;
             
-            // El marco visual sutil para denotar que es un elemento editable
             floatingBox.style.backgroundColor = 'transparent'; 
             floatingBox.style.border = '2px dashed rgba(0, 0, 0, 0.4)';
             floatingBox.style.borderRadius = '8px';
             floatingBox.style.cursor = 'move';
             
-            // Insertamos la imagen con la clase que controla su peso y comportamiento
             floatingBox.innerHTML = `<img src="${imgSrc}" class="sticker-img">`;
 
             hacerMovible(floatingBox);
             canvas.appendChild(floatingBox);
         }
 
-        // Lógica de movimiento en el lienzo
         function hacerMovible(elemento) {
             let isDragging = false;
             let startX, startY;
@@ -573,7 +559,7 @@
                 startX = e.clientX - elemento.offsetLeft;
                 startY = e.clientY - elemento.offsetTop;
                 elemento.style.zIndex = 100;
-                elemento.style.borderColor = 'var(--accent-black)'; // Resalta al tocar
+                elemento.style.borderColor = 'var(--accent-black)';
             });
 
             document.addEventListener('mousemove', (e) => {
@@ -596,10 +582,10 @@
                 if (isDragging) {
                     isDragging = false;
                     elemento.style.zIndex = 10;
-                    elemento.style.borderColor = 'rgba(0, 0, 0, 0.4)'; // Vuelve a su estado sutil
+                    elemento.style.borderColor = 'rgba(0, 0, 0, 0.4)';
                 }
             });
-            }
+        }
     </script>
 </body>
 </html>
