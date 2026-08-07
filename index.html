@@ -268,7 +268,7 @@
         </section>
     </main>
 
-    <script>
+    <script type="module">
 
         // --- CONFIGURACIÓN DE FIREBASE ---
         // Importar los módulos de Firebase desde los CDN oficiales
@@ -439,18 +439,25 @@
             else if (currentLevel === 'folders') renderLevel('brands');
         });
 
-        function renderLevel(level, parentId = null) {
+   function renderLevel(level, parentId = null) {
             dynamicGrid.innerHTML = '';
             currentLevel = level;
+
+            // Esperar a que cargue el catálogo si está vacío
+            if (Object.keys(catalogoReal).length === 0) {
+                dynamicGrid.innerHTML = '<p style="text-align:center; width:100%;">Cargando catálogo...</p>';
+                return;
+            }
 
             if (level === 'brands') {
                 btnBack.style.display = 'none';
                 document.querySelector('#step-3 .step-title span').innerText = '3. Marcas Asociadas';
                 
-                Object.keys(mockDriveData).forEach(brandName => {
-                    const brand = mockDriveData[brandName];
+                Object.keys(catalogoReal).forEach(brandName => {
+                    const brand = catalogoReal[brandName];
                     const el = document.createElement('div');
                     el.className = 'grid-item';
+                    // Usamos el icono HTML que guardamos desde Firebase
                     el.innerHTML = `<div class="icon">${brand.icon}</div><small><b>${brandName}</b></small>`;
                     el.onclick = () => renderLevel('folders', brandName);
                     dynamicGrid.appendChild(el);
@@ -461,7 +468,7 @@
                 selectedBrand = parentId;
                 document.querySelector('#step-3 .step-title span').innerText = `Carpetas: ${parentId}`;
                 
-                const folders = mockDriveData[parentId].folders;
+                const folders = catalogoReal[parentId].folders;
                 Object.keys(folders).forEach(folderName => {
                     const el = document.createElement('div');
                     el.className = 'grid-item';
@@ -475,20 +482,24 @@
                 selectedFolder = parentId;
                 document.querySelector('#step-3 .step-title span').innerText = `${selectedBrand} > ${parentId}`;
                 
-                const items = mockDriveData[selectedBrand].folders[parentId];
+                const items = catalogoReal[selectedBrand].folders[parentId];
                 items.forEach(item => {
                     const el = document.createElement('div');
                     el.className = 'grid-item draggable';
                     el.draggable = true; 
-                    // AHORA INYECTA LA IMAGEN REAL EN LUGAR DEL EMOJI
+                    
+                    // Mostramos la imagen real desde el Bucket de Storage
                     el.innerHTML = `<img src="${item.image}" alt="${item.name}" class="catalog-thumb"><small>${item.name}</small>`;
-                    // Guardamos la ruta de la imagen en un atributo dataset para usarla al arrastrar
+                    
+                    // Guardamos la URL y el Precio en el dataset para usarlos después (Orden de compra)
                     el.dataset.imgSrc = item.image;
+                    el.dataset.precio = item.precio; 
+                    el.dataset.idMueble = item.id;
+                    
                     dynamicGrid.appendChild(el);
                 });
             }
         }
-
         // --- LÓGICA DE DRAG & DROP (MUEBLES COMO STICKERS) ---
         
         let draggedItemSrc = null; // Guardará la URL de la imagen que se está arrastrando
@@ -506,7 +517,7 @@
             e.preventDefault(); 
             e.dataTransfer.dropEffect = 'copy';
             canvas.style.borderColor = 'var(--accent-black)';
-        });
+        });https://github.com/zakuorochi/mubly/tree/main
 
         canvas.addEventListener('dragleave', () => {
             canvas.style.borderColor = 'transparent';
