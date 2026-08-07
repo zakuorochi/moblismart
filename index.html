@@ -269,6 +269,82 @@
     </main>
 
     <script>
+
+        // --- CONFIGURACIÓN DE FIREBASE ---
+        // Importar los módulos de Firebase desde los CDN oficiales
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // TODO: Reemplaza esto con las credenciales de tu proyecto Mubly en Firebase
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY_DE_FIREBASE",
+            authDomain: "mubly-app.firebaseapp.com",
+            projectId: "mubly-app",
+            storageBucket: "mubly-app.appspot.com",
+            messagingSenderId: "TU_MESSAGING_ID",
+            appId: "TU_APP_ID"
+        };
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- LÓGICA PARA LEER EL CATÁLOGO DESDE FIRESTORE ---
+        
+        // Variable para guardar el catálogo real estructurado
+        let catalogoReal = {};
+
+        async function cargarCatalogoDesdeFirestore() {
+            try {
+                const marcasSnapshot = await getDocs(collection(db, "marcas"));
+                const mueblesSnapshot = await getDocs(collection(db, "muebles"));
+
+                // 1. Construir la base de las marcas
+                marcasSnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.activa) {
+                        catalogoReal[data.nombre] = {
+                            id: doc.id,
+                            icon: data.logo_url ? `<img src="${data.logo_url}" style="width:24px; height:24px;">` : "🏢",
+                            folders: {}
+                        };
+                    }
+                });
+
+                // 2. Poblar los muebles dentro de sus marcas y categorías
+                mueblesSnapshot.forEach((doc) => {
+                    const mueble = doc.data();
+                    // Buscar el nombre de la marca basándonos en el marca_id
+                    const marcaDoc = marcasSnapshot.docs.find(m => m.id === mueble.marca_id);
+                    
+                    if (marcaDoc) {
+                        const nombreMarca = marcaDoc.data().nombre;
+                        const categoria = mueble.categoria;
+
+                        // Si la categoría no existe en esta marca, la creamos
+                        if (!catalogoReal[nombreMarca].folders[categoria]) {
+                            catalogoReal[nombreMarca].folders[categoria] = [];
+                        }
+
+                        // Insertamos el mueble
+                        catalogoReal[nombreMarca].folders[categoria].push({
+                            id: mueble.id_mueble,
+                            image: mueble.imagen_url,
+                            name: mueble.nombre,
+                            precio: mueble.precio // Listo para la orden de compra
+                        });
+                    }
+                });
+
+                console.log("Catálogo cargado exitosamente desde Firestore", catalogoReal);
+
+            } catch (error) {
+                console.error("Error cargando el catálogo:", error);
+            }
+        }
+
+        // Llamar a la función tan pronto cargue la página
+        cargarCatalogoDesdeFirestore();
         // Elementos de la UI
         const uploadInput = document.getElementById('upload-room');
         const canvas = document.getElementById('canvas');
@@ -350,18 +426,7 @@
 
         // --- Simulación de Estructura de Drive (Marcas Dinámicas) ---
     // --- Simulación de Estructura de Drive (Vinculado a carpeta "muestras") ---
-       const mockDriveData = {
-            "IKEA": {
-                icon: "🏢",
-                folders: {
-                    "Sillas": [
-                        // REEMPLAZA AQUÍ CON LOS NOMBRES EXACTOS DE TUS ARCHIVOS
-                        { id: "ik-s1", image: "/muestras/nombre-de-tu-foto1.jpg", name: "Silla de prueba 1" },
-                        { id: "ik-s2", image: "/muestras/nombre-de-tu-foto2.jpeg", name: "Silla de prueba 2" }
-                    ]
-                }
-            }
-        };
+
 
         const dynamicGrid = document.getElementById('dynamic-grid');
         const btnBack = document.getElementById('btn-back');
